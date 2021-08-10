@@ -14,6 +14,7 @@ namespace WebGame.Components.User
 {
     public class UserModel
     {
+        private int _energy;
         public Guid Id { get; init; }
         public string Name { get; set; }
         public string Email { get; set; }
@@ -30,11 +31,16 @@ namespace WebGame.Components.User
         public DateTime RegisterDate { get; init; }
         public DateTime LastActive { get; set; }
         public string AvatarUrl { get; set; }
-        public int Energy { get; set; }
+        public int Energy
+        {
+            get => _energy + BonusStat.Energy; 
+            set => _energy = value; 
+        }
         public double XpMultiplier { get; set; }
         public int Hp { get; set; }
         public int Damage { get; set; }
         public int Defence { get; set; }
+        public BonusStat BonusStat { get; set; }
 
         public UserModel()
         {
@@ -53,6 +59,7 @@ namespace WebGame.Components.User
             Hp = 50;
             Damage = 10;
             Defence = 0;
+            BonusStat = new();
             Equipments = new()
             {
                 new Weapon(), new Armor() {Type = ArmorType.Armor},
@@ -82,32 +89,74 @@ namespace WebGame.Components.User
                 sumDefence += equipment.Defence;
             }
 
-            Damage = 10 + sumDamage;
-            Defence = sumDefence;
+            Damage = 10 + sumDamage + BonusStat.Damage;
+            Defence = sumDefence + BonusStat.Defence;
 
-            Hp = 50 * Level + Defence * 2;
+            Hp = (50 + BonusStat.Hp) * Level + Defence * 2;
         }
 
         public void ToInventory(IEquipment equipment)
         {
-            if (equipment is IInventoryItem item)
-            {
-                Inventory.Items.Add(item);
-                Equipments.Remove(equipment);
-            }
+            Inventory.Equipments.Add(equipment);
+            var e = Equipments.First(eq => eq.Equals(equipment));
+
+            if (e is Armor a) e = new Armor() {Type = a.Type};
+            else if (e is Weapon) e = new Weapon();
+            else if (e is Bijouterie b) e = new Bijouterie() {Type = b.Type};
+            
+            SetStats();
         }
 
-        public void ToEquipment(IInventoryItem item)
+        public void ToEquipment(IEquipment equipment)
         {
-            if (item is IEquipment equipment)
+            if (equipment is Weapon weapon)
             {
-                Inventory.Items.Remove(item);
-
-                if (equipment is Weapon weapon)
+                for (int i = 0; i < Equipments.Count; i++)
                 {
-                    
+                    if (Equipments[i] is Weapon)
+                    {
+                        Equipments[i] = weapon;
+                        break;
+                    }
                 }
+
+                Inventory.Equipments.Remove(equipment);
             }
+            else if (equipment is Armor armor)
+            {
+                for (int i = 0; i < Equipments.Count; i++)
+                {
+                    if (Equipments[i] is Armor a && a.Type == armor.Type)
+                    {
+                        Equipments[i] = armor;
+                        break;
+                    }
+                }
+                
+                Inventory.Equipments.Remove(equipment);
+            }
+            else if (equipment is Bijouterie bijouterie)
+            {
+                for (int i = 0; i < Equipments.Count; i++)
+                {
+                    if (Equipments[i] is Bijouterie b && b.Type == bijouterie.Type
+                    && b.Name == string.Empty)
+                    {
+                        Equipments[i] = bijouterie;
+                        break;
+                    }
+                }
+                
+                Inventory.Equipments.Remove(equipment);
+            }
+            
+            SetStats();
+        }
+
+        public void SwapEquip(IEquipment toInventory, IEquipment toEquipment)
+        {
+            ToInventory(toInventory);
+            ToEquipment(toEquipment);
         }
     }
 }
